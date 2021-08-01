@@ -1,5 +1,6 @@
-# fruit-slicer
-#
+# fruit-slicer-cv
+# Computer Vision enabled control, an early prototype of flashlight control for Beat Slicer
+# 
 # How to run:
 # Clone the repository onto your computer. game.py contains the main program file, run it to run the program. You do not need to import modules or install anything. 
 #
