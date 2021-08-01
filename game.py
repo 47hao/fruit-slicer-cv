@@ -11,7 +11,8 @@ import random
 import time
 import sliceFunction
 
-
+import threading
+import camTracker
 
 fruitOutlines = [
     [(0,-50),(-39,-31),(-49,11),(-22,45),(22,45),(49,11),(39,-31)],
@@ -32,8 +33,6 @@ def appStarted(app):
     initFruits(app)
 
     blade.init(app)
-    #TEMPORARY!!!
-    app.slice=[None,None]
 
     app.score = 0
     app.lastWave = time.time()
@@ -42,6 +41,41 @@ def appStarted(app):
     app.timerDelay = int(max(1000/app.targetFPS, 1.0))
     app.prevTime = time.time()
 
+    #camera tracking variables
+    app.debugMode = False #displays marker
+
+    app.camThreshold = .9
+    app.cam = camTracker.camTracker()
+    app.xPos = 0
+    app.yPos = 0
+
+    app.timerTicks = 0#for camera picking
+    app.lastTime = 0 #for redraw timing
+    app.maxThreads = 8
+    app.startupTime = time.time()
+
+def keyPressed(app, event):
+#controlling camera sensitivity
+    if event.key == 'Up':
+        if(app.camThreshold) < .95:
+            app.camThreshold += .05
+    elif event.key == 'Down':
+        if(app.camThreshold) > .5:
+            app.camThreshold -= .05
+    elif event.key == 'Space':
+        app.cam.toggleFilter()
+
+def addBladePoint(app,x,y):
+    blade.insertBlade(app,0,(x,y))
+    sliceAllFruits(app)
+
+def camTick(app):
+    output = app.cam.getCoords(app.camThreshold)
+    if(output != None):
+        (xScale, yScale) = output
+        app.xPos = app.width*(1-xScale) #camera's flipped
+        app.yPos = app.height*yScale
+        addBladePoint(app,app.xPos,app.yPos)
 
 def getFruit():
     i = random.randint(0,3)
@@ -51,7 +85,7 @@ def initFruits(app):
     app.fruits = []
     #p = [(-50,0),(-35,35),(0,50),(35,35),(50,0),(35,-35),(0,-50),(-35,-35)]
     (f, outline) = getFruit()
-    createWave(app,2)
+    #createWave(app,2)
     app.sliced = False
     app.grav = 600
 
@@ -70,23 +104,6 @@ def createWave(app,numFruits):
 
     app.fruits.extend(waveFruits)
 
-def mousePressed(app, event):
-    bladeMouse(app, event)
-    #fruitTest(app)
-
-    #TEMPORARY
-    start = (event.x, event.y)
-    app.slice[0] = start
-
-def bladeMouse(app, event):
-    if (not app.mousePress):
-        app.mousePress = True
-        #app.startpos = (event.x, event.y)
-        #app.blade.append(app.startpos)
-        app.t0 = time.time()
-
-def keyPressed(app, event):
-    pass
 def cleanFruits(app):
     i = 0
     while i<len(app.fruits):
@@ -95,10 +112,6 @@ def cleanFruits(app):
             app.fruits.pop(i)
         else:
             i += 1
-
-def mouseReleased(app, event):
-    app.mousePress = False
-    cleanFruits(app)
 
 def sliceAllFruits(app):
     i = 0
@@ -121,24 +134,27 @@ def sliceFruit(app, f, i, p0, p1, w, h):
     app.fruits.insert(i,f2)
     app.fruits.insert(i,f1)
 
-def mouseDragged(app,event):
-    app.lastMouseX, app.lastMouseY = event.x, event.y
-    if (app.mousePress):
-        #app.t1 = time.time()
-        #app.bladeCounter += 1
-        x1,y1 = (event.x,event.y)
-        blade.insertBlade(app,0,(x1,y1))
-        sliceAllFruits(app)
 
 def timerFired(app):
-    doStep(app)       
+    app.timerTicks += 1
+    if app.timerTicks%5 == 0: 
+        if(threading.activeCount() < app.maxThreads):# and app.timerTicks%2 == 0):
+            thread = camThread(1, "Thread-1", app)
+            thread.start()
+        #print(threading.activeCount())
+
+    if app.timerTicks%200 == 0:
+        cleanFruits(app)  
+
+    doStep(app)
+        
             
 def doStep(app):
-
-    if((time.time() - app.lastWave) > app.timeBetweenWaves):
+    if((time.time() - app.lastWave) > app.timeBetweenWaves and
+        time.time()-app.startupTime > 5):
         app.numFruits = 2 + app.score//30
-        if(app.numFruits > 8):
-            app.numFruits = 8
+        if(app.numFruits > 12):
+            app.numFruits = 12
         createWave(app,app.numFruits)
         app.lastWave = time.time()
 
@@ -147,11 +163,19 @@ def doStep(app):
         f.move(app.grav, (time.time()-app.prevTime))
     app.prevTime = time.time()
 
+def drawReferenceMarker(app, canvas):
+    r = 10
+    canvas.create_oval(app.xPos-r, app.yPos-r, app.xPos+r, app.yPos+r,
+                        fill = "red", outline = "")
+
 def redrawAll(app, canvas):
     drawBackdrop(app, canvas)
     drawFruits(app, canvas)
     blade.drawBlade(app,canvas)
     drawScore(app,canvas)
+    if(app.debugMode):
+        drawReferenceMarker(app,canvas)
+    app.lastTime = time.time()
 
 def drawScore(app,canvas):
     message = f"{app.score}"
@@ -182,6 +206,16 @@ def drawFruits(app, canvas):
         elif(f.fruitType == "strawberry"):
             c = "firebrick"
         canvas.create_polygon(coords, fill=c,width=4)
+
+class camThread(threading.Thread):
+    def __init__(self, threadID, name, game):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+        self.game = game
+
+    def run(self):
+        camTick(self.game)
 
 runApp(width=1100, height=800)
 

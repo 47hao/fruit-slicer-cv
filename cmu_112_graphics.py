@@ -256,8 +256,8 @@ class App(object):
 
     def __init__(app, width=300, height=300, x=0, y=0, title=None, autorun=True, mvcCheck=True, logDrawingCalls=True):
         app.winx, app.winy, app.width, app.height = x, y, width, height
-        app.timerDelay = 5     # milliseconds
-        app.mouseMovedDelay = 5 # ditto
+        app.timerDelay = 100     # milliseconds
+        app.mouseMovedDelay = 50 # ditto
         app._title = title
         app._mvcCheck = mvcCheck
         app._logDrawingCalls = logDrawingCalls
@@ -374,6 +374,7 @@ class App(object):
         return (getattr(type(app), methodName) is not getattr(App, methodName))
 
     def _mvcViolation(app, errMsg):
+        return
         app._running = False
         raise Exception('MVC Violation: ' + errMsg)
 
