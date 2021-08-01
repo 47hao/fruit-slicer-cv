@@ -4,7 +4,7 @@
 ##### - Built as an early prototype of flashlight control for Beat Slicer
 # 
 ### How to run:
-##### Clone the repository onto your computer. game.py contains the main program file, run it to run the program. OpenCV Python library is required. 
+##### Clone the repository, and run game.py - that's all! OpenCV Python library is required. 
 #
 ##### The program is run on cmu_112_graphics:
 ##### https://www.cs.cmu.edu/~112/notes/cmu_112_graphics.py
